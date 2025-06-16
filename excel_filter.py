@@ -65,13 +65,19 @@ class VisualDataFlowReporter:
             referenced_doc_ids = []
             for ref_result in answer.get('referenced_results', []):
                 doc_id = ref_result.get('doc_id', 'N/A')
-                title = ref_result.get('title') # Get title for matching
+                title = ref_result.get('title')
                 referenced_doc_ids.append(doc_id)
-                # MODIFIED: Find filtered result using both doc_id and title
+                
+                # Find the source document in the processed filtered list
                 source_result = self._find_filtered_by_doc_id_and_title(doc_id, title)
-                # Mark connection regardless of whether it was in the filtered list
-                if doc_id not in self.result_connections: self.result_connections[doc_id] = {}
-                self.result_connections[doc_id]['used_in_answer'] = True
+                
+                # --- FIX ---
+                # Only mark the document as 'used' if it was actually found 
+                # in the filtered results list.
+                if source_result:
+                    if doc_id not in self.result_connections: 
+                        self.result_connections[doc_id] = {}
+                    self.result_connections[doc_id]['used_in_answer'] = True
             
             self.answers.append({
                 'question': answer.get('question', 'Unknown'), 'answer': answer.get('answer', 'No answer'),
