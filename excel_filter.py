@@ -44,7 +44,9 @@ class VisualDataFlowReporter:
         filtered_results = data.get('filtered_search_results', [])
         for result in filtered_results:
             doc_id = result.get('doc_id', 'N/A')
-            original_result = self._find_original_by_doc_id(doc_id)
+            title = result.get('title') # Get title for matching
+            # MODIFIED: Find original using both doc_id and title
+            original_result = self._find_original_by_doc_id_and_title(doc_id, title)
             if original_result:
                 dest_row = 3 + len(self.filtered_results)
                 enhanced_result = {
@@ -63,8 +65,10 @@ class VisualDataFlowReporter:
             referenced_doc_ids = []
             for ref_result in answer.get('referenced_results', []):
                 doc_id = ref_result.get('doc_id', 'N/A')
+                title = ref_result.get('title') # Get title for matching
                 referenced_doc_ids.append(doc_id)
-                source_result = self._find_filtered_by_doc_id(doc_id)
+                # MODIFIED: Find filtered result using both doc_id and title
+                source_result = self._find_filtered_by_doc_id_and_title(doc_id, title)
                 # Mark connection regardless of whether it was in the filtered list
                 if doc_id not in self.result_connections: self.result_connections[doc_id] = {}
                 self.result_connections[doc_id]['used_in_answer'] = True
@@ -75,11 +79,15 @@ class VisualDataFlowReporter:
                 'row': dest_row
             })
 
-    def _find_original_by_doc_id(self, doc_id):
-        return next((r for r in self.search_results if r['doc_id'] == doc_id), None)
+    # RENAMED and MODIFIED: Now finds by both doc_id and title.
+    def _find_original_by_doc_id_and_title(self, doc_id, title):
+        """Finds a result in the initial search list by both doc_id and title."""
+        return next((r for r in self.search_results if r['doc_id'] == doc_id and r.get('title') == title), None)
 
-    def _find_filtered_by_doc_id(self, doc_id):
-        return next((r for r in self.filtered_results if r['doc_id'] == doc_id), None)
+    # RENAMED and MODIFIED: Now finds by both doc_id and title.
+    def _find_filtered_by_doc_id_and_title(self, doc_id, title):
+        """Finds a result in the filtered list by both doc_id and title."""
+        return next((r for r in self.filtered_results if r['doc_id'] == doc_id and r.get('title') == title), None)
 
     def create_visual_flow_excel(self, output_path):
         wb = openpyxl.Workbook()
