@@ -4,81 +4,45 @@ from pathlib import Path
 import openpyxl
 from openpyxl.styles import Font, PatternFill, GradientFill, Alignment
 from openpyxl.utils import get_column_letter
+import hashlib
 
 # ==============================================================================
 #  STEP 1: DEFINE THE COLOR PALETTES
 # ==============================================================================
-
-# NEW: The full palette of 100 visually distinct colors.
-# The list is ordered so that the most distinct colors appear first.
 distinct_100_palette = [
-    # Top 15 Most Distinguishable
     '#E6194B', '#4363D8', '#FFE119', '#3CB44B', '#F58231', '#911EB4', '#42D4F4', '#F032E6',
     '#BFEF45', '#FABED4', '#469990', '#DCBEFF', '#9A6324', '#FFFAC8', '#800000',
-    # Reds & Pinks
-    '#F58282', '#9A132F', '#FFA07A', '#FF7F50', '#DC143C',
-    # Oranges
-    '#F5A65B', '#B35407', '#FFDAB9', '#FF8C00', '#CC5500',
-    # Yellows & Browns
-    '#FFFF80', '#FFD700', '#F0E68C', '#B39E11', '#8B4513', '#F5F5DC', '#D2B48C', '#5C3D1B',
-    # Greens
-    '#AAFFC3', '#7FFFD4', '#006400', '#808000', '#7FFF00', '#228B22', '#AAF0D1', '#008080', '#556B2F',
-    # Cyans & Teals
-    '#80FFFF', '#008B8B', '#00FFFF', '#40E0D0', '#20B2AA', '#5F9EA0', '#4682B4',
-    # Blues
-    '#87CEEB', '#A9D0F5', '#000075', '#0033A0', '#4169E1', '#1E90FF', '#191970', '#4B0082', '#6495ED',
-    # Purples & Magentas
-    '#E6E6FA', '#D8BFD8', '#5A007B', '#FF00FF', '#DA70D6', '#D9007E', '#9370DB', '#8B008B', '#9966CC', '#6A5ACD',
-    # Greys & Neutrals
-    '#404040', '#808080', '#A9A9A9', '#C0C0C0', '#DCDCDC', '#F5F5F5',
-    # Extra Tones
-    '#ADFF2F', '#FF69B4', '#00BFFF', '#3CB371', '#483D8B', '#9400D3', '#B22222',
-    '#B8860B', '#48D1CC', '#9932CC', '#CD853F', '#BC8F8F', '#8FBC8F', '#2F4F4F', '#696969',
-    '#CD5C5C', '#778899', '#B0E0E6', '#FFC0CB', '#DDA0DD', '#FA8072', '#F4A460', '#98FB98', '#ADD8E6'
+    '#F58282', '#9A132F', '#FFA07A', '#FF7F50', '#DC143C', '#F5A65B', '#B35407',
+    '#FFDAB9', '#FF8C00', '#CC5500', '#FFFF80', '#FFD700', '#F0E68C', '#B39E11',
+    '#8B4513', '#F5F5DC', '#D2B48C', '#5C3D1B', '#AAFFC3', '#7FFFD4', '#006400',
+    '#808000', '#7FFF00', '#228B22', '#AAF0D1', '#008080', '#556B2F', '#80FFFF',
+    '#008B8B', '#00FFFF', '#40E0D0', '#20B2AA', '#5F9EA0', '#4682B4', '#87CEEB',
+    '#A9D0F5', '#000075', '#0033A0', '#4169E1', '#1E90FF', '#191970', '#4B0082',
+    '#6495ED', '#E6E6FA', '#D8BFD8', '#5A007B', '#FF00FF', '#DA70D6', '#D9007E',
+    '#9370DB', '#8B008B', '#9966CC', '#6A5ACD', '#404040', '#808080', '#A9A9A9',
+    '#C0C0C0', '#DCDCDC', '#F5F5F5', '#ADFF2F', '#FF69B4', '#00BFFF', '#3CB371',
+    '#483D8B', '#9400D3', '#B22222', '#B8860B', '#48D1CC', '#9932CC', '#CD853F',
+    '#BC8F8F', '#8FBC8F', '#2F4F4F', '#696969', '#CD5C5C', '#778899', '#B0E0E6',
+    '#FFC0CB', '#DDA0DD', '#FA8072', '#F4A460', '#98FB98', '#ADD8E6'
 ]
-
-# NEW: A curated, smaller palette designed for high contrast and color-blind safety.
 colorblind_safe_palette = [
     '#377eb8', '#ff7f00', '#4daf4a', '#f781bf', '#a65628',
     '#984ea3', '#999999', '#e41a1c', '#dede00'
 ]
 
-
 # ==============================================================================
-#  STEP 2: DEFINE THE VISUAL DATA FLOW REPORTER CLASS (MODIFIED)
+#  STEP 2: DEFINE THE VISUAL DATA FLOW REPORTER CLASS (CORRECTED)
 # ==============================================================================
 
 class VisualDataFlowReporter:
-    # MODIFIED: __init__ now accepts a palette
     def __init__(self, palette=None):
         self.search_results = []
         self.filtered_results = []
         self.answers = []
         self.result_connections = {}
         self.source_color_map = {}
-        
-        # MODIFIED: Use the provided palette, or a small default if none is given
         self.color_palette = palette if palette is not None else ['#BDE6F1', '#FDFD96', '#FFB48A']
 
-    # MODIFIED: Color assignment now uses a simple index to prioritize distinct colors
-    def _assign_source_colors(self):
-        """Assigns a unique color to each search result that leads to an answer."""
-        successful_fingerprints = {fp for ans in self.answers for fp in ans['referenced_fingerprints']}
-        
-        color_index = 0
-        for result in self.search_results:
-            if result['fingerprint'] in successful_fingerprints:
-                if result['fingerprint'] not in self.source_color_map:
-                    # Prevent running out of colors
-                    if color_index < len(self.color_palette):
-                        self.source_color_map[result['fingerprint']] = self.color_palette[color_index]
-                        color_index += 1
-                    else:
-                        # Fallback: cycle colors if we have more sources than palette colors
-                        self.source_color_map[result['fingerprint']] = self.color_palette[color_index % len(self.color_palette)]
-                        color_index += 1
-    
-    # ... Other methods like create_content_fingerprint, load_and_analyze_data, etc., remain the same ...
     def create_content_fingerprint(self, result_dict):
         key_fields = ['title', 'url', 'content', 'description', 'text']
         key_values = [str(result_dict.get(f, '') or '').strip().lower() for f in key_fields]
@@ -89,24 +53,42 @@ class VisualDataFlowReporter:
         for file_path in json_file_paths:
             with open(file_path, 'r', encoding='utf-8') as f: data = json.load(f)
             self._process_search_results(data, file_path)
-            self._process_filtered_results(data)
-            self._process_answers(data)
+            self._process_filtered_results(data, file_path)
+            self._process_answers(data, file_path)
         self._assign_source_colors()
 
+    # BUG FIX: This method now correctly calculates and adds the 'fingerprint' key.
     def _process_search_results(self, data, file_path):
-        for r in data.get('search_results', []): self.search_results.append({**r, 'source_file': Path(file_path).name})
+        for r in data.get('search_results', []):
+            fp = self.create_content_fingerprint(r)
+            self.search_results.append({**r, 'fingerprint': fp, 'source_file': Path(file_path).name})
 
-    def _process_filtered_results(self, data):
+    # BUG FIX: This method now correctly adds the 'fingerprint' key.
+    def _process_filtered_results(self, data, file_path):
         for r in data.get('filtered_search_results', []):
             fp = self.create_content_fingerprint(r)
             self.result_connections.setdefault(fp, {})['filtered'] = True
-            self.filtered_results.append(r)
+            self.filtered_results.append({**r, 'fingerprint': fp, 'source_file': Path(file_path).name})
 
-    def _process_answers(self, data):
+    def _process_answers(self, data, file_path):
         for r in data.get('answers_to_questions', []):
             fps = [self.create_content_fingerprint(ref) for ref in r.get('referenced_results', [])]
             for fp in fps: self.result_connections.setdefault(fp, {})['used_in_answer'] = True
-            self.answers.append({**r, 'referenced_fingerprints': fps})
+            self.answers.append({**r, 'referenced_fingerprints': fps, 'source_file': Path(file_path).name})
+    
+    def _assign_source_colors(self):
+        successful_fingerprints = {fp for ans in self.answers for fp in ans['referenced_fingerprints']}
+        color_index = 0
+        for result in self.search_results:
+            # This line now works because 'fingerprint' key is guaranteed to exist.
+            if result['fingerprint'] in successful_fingerprints:
+                if result['fingerprint'] not in self.source_color_map:
+                    if color_index < len(self.color_palette):
+                        self.source_color_map[result['fingerprint']] = self.color_palette[color_index]
+                        color_index += 1
+                    else:
+                        self.source_color_map[result['fingerprint']] = self.color_palette[color_index % len(self.color_palette)]
+                        color_index += 1
 
     def create_visual_flow_on_worksheet(self, ws):
         regions = {'search': {'start_col': 1, 'width': 5, 'title': '1. SEARCH RESULTS'},
@@ -125,6 +107,7 @@ class VisualDataFlowReporter:
             colors = {'search': "1565C0", 'filtered': "2E7D32", 'answers': "C62828"}
             cell.fill = PatternFill(fill_type="solid", start_color=colors[name])
 
+    # BUG FIX: This method is now simpler and correctly uses the pre-calculated fingerprint.
     def _populate_regions(self, ws, regions):
         max_len = max(len(self.search_results), len(self.filtered_results), len(self.answers))
         headers = {'search': ['File', 'Pos', 'Fingerprint', 'Title', 'Status'],
@@ -135,18 +118,18 @@ class VisualDataFlowReporter:
         for i in range(max_len):
             row = 3 + i
             if i < len(self.search_results):
-                r = self.search_results[i]; fp = self.create_content_fingerprint(r); conn = self.result_connections.get(fp, {})
+                r = self.search_results[i]; fp = r['fingerprint']; conn = self.result_connections.get(fp, {})
                 color = self.source_color_map.get(fp)
                 if color: status = "➡️ Used in Answer"
                 elif conn.get('filtered'): status, color = "Filtered", "FFF9C4"
                 else: status, color = "Stopped", "FFCDD2"
-                self._fill_row(ws, row, regions['search']['start_col'], [r.get('source_file',''), i + 1, fp, r.get('title', '')[:30]+"...", status], PatternFill(start_color=color, end_color=color, fill_type="solid"))
+                self._fill_row(ws, row, regions['search']['start_col'], [r.get('source_file',''), i + 1, fp, r.get('title', '')[:30]+"...", status], PatternFill(start_color=color, fill_type="solid"))
             if i < len(self.filtered_results):
-                r = self.filtered_results[i]; fp = self.create_content_fingerprint(r)
+                r = self.filtered_results[i]; fp = r['fingerprint']
                 color = self.source_color_map.get(fp)
                 if color: status = "➡️ Used in Answer"
                 else: status, color = "Unused", "FFF9C4"
-                self._fill_row(ws, row, regions['filtered']['start_col'], [r.get('source_file',''), fp, r.get('title', '')[:25]+"...", "n/a", status], PatternFill(start_color=color, end_color=color, fill_type="solid"))
+                self._fill_row(ws, row, regions['filtered']['start_col'], [r.get('source_file',''), fp, r.get('title', '')[:25]+"...", "n/a", status], PatternFill(start_color=color, fill_type="solid"))
             if i < len(self.answers):
                 r = self.answers[i]; source_fps = r['referenced_fingerprints']
                 source_colors = [self.source_color_map[fp] for fp in source_fps if fp in self.source_color_map]
@@ -179,9 +162,7 @@ if __name__ == "__main__":
     setup_dummy_json_files()
     
     # --- CONFIGURATION ---
-    # NEW: Set this to True to use the smaller, high-contrast, color-blind-safe palette.
     USE_COLORBLIND_SAFE_PALETTE = False
-    
     ANSWER_SETS = {
         "AI Fundamentals": ["report_data_1.json"],
         "Medical AI Report": ["report_data_2.json"],
@@ -192,7 +173,6 @@ if __name__ == "__main__":
     output_excel_file = "Dashboard_Data_Flow_Report.xlsx"
     wb = openpyxl.Workbook()
     
-    # Create "Control Panel" worksheet
     ws_home = wb.active
     ws_home.title = "Control Panel"
     ws_home['A1'].value = "Data Flow Dashboard"
@@ -206,28 +186,20 @@ if __name__ == "__main__":
         cell.hyperlink = f"#'{set_name}'!A1"
         cell.font = Font(size=12, color="0000FF", underline="single")
 
-    # NEW: Add a methodology notes section to the control panel
     note_start_row = len(ANSWER_SETS) + 6
     ws_home.cell(row=note_start_row, column=1).value = "Methodology Notes"
     ws_home.cell(row=note_start_row, column=1).font = Font(size=14, bold=True)
-    ws_home.cell(row=note_start_row + 1, column=1).value = (
-        "Color Trails: Each successful search result is assigned a unique color from a palette designed for visual distinction. "
-        "This color 'stains' the data as it flows through the pipeline. "
-        "Gradient fills in the 'Final Answers' region indicate that the answer was synthesized from multiple, differently-colored sources."
-    )
-    ws_home.cell(row=note_start_row + 1, column=1).alignment = Alignment(wrap_text=True)
-    ws_home.merge_cells(start_row=note_start_row + 1, start_column=1, end_row=note_start_row + 3, end_column=5)
+    note_cell = ws_home.cell(row=note_start_row + 1, column=1)
+    note_cell.value = ("Color Trails: Each successful search result is assigned a unique color from a palette designed for visual distinction. This color 'stains' the data as it flows through the pipeline. Gradient fills in the 'Final Answers' region indicate that the answer was synthesized from multiple, differently-colored sources.")
+    note_cell.alignment = Alignment(wrap_text=True, vertical="top")
+    ws_home.merge_cells(start_row=note_start_row + 1, start_column=1, end_row=note_start_row + 4, end_column=6)
 
-    # Determine which palette to use based on the configuration
     active_palette = colorblind_safe_palette if USE_COLORBLIND_SAFE_PALETTE else distinct_100_palette
     print(f"Using {'Color-Blind Safe' if USE_COLORBLIND_SAFE_PALETTE else 'Full 100-Color'} Palette.")
 
-    # Loop through each answer set and generate a report on its own tab
     for set_name, json_files in ANSWER_SETS.items():
         print(f"--- Generating report for: {set_name} ---")
         ws_report = wb.create_sheet(title=set_name)
-        
-        # Pass the selected palette to the reporter
         reporter = VisualDataFlowReporter(palette=active_palette)
         reporter.load_and_analyze_data(json_files)
         reporter.create_visual_flow_on_worksheet(ws_report)
